@@ -1,0 +1,114 @@
+<!doctype html>
+<html>
+<head><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; media-src data: blob:; base-uri 'none'; form-action 'none'">
+<meta charset="utf-8">
+<title>AirMesh Prototype</title>
+<style>
+*{box-sizing:border-box;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;}
+body{margin:0;width:1280px;height:720px;background:#0f1720;color:#e6eef5;}
+#app{width:1280px;height:720px;display:flex;flex-direction:column;}
+header{padding:14px 24px;background:#0b2b2e;border-bottom:2px solid #1b4d4f;}
+header h1{margin:0;font-size:22px;color:#4fd1a5;}
+header p{margin:2px 0 0;font-size:13px;color:#9fb8c2;}
+.tabs{display:flex;background:#0b1f26;}
+.tab{flex:0 0 auto;padding:10px 20px;background:none;border:none;color:#9fb8c2;cursor:pointer;font-size:14px;border-bottom:3px solid transparent;}
+.tab.active{color:#4fd1a5;border-bottom:3px solid #4fd1a5;}
+.view{flex:1;display:flex;padding:16px 24px;gap:20px;}
+.map-wrap{flex:2;}
+.map-area{position:relative;width:100%;height:480px;background:#13262b;border:1px solid #1e3a3f;border-radius:10px;overflow:hidden;}
+.pin{position:absolute;width:18px;height:18px;border-radius:50%;border:2px solid #fff;cursor:pointer;}
+.new-pin{box-shadow:0 0 0 4px rgba(52,152,219,0.4);}
+.tooltip{position:absolute;left:220px;top:250px;background:#1c2e33;border:1px solid #4fd1a5;padding:8px 10px;border-radius:6px;font-size:12px;width:190px;}
+.side-panel{flex:1;background:#13262b;border:1px solid #1e3a3f;border-radius:10px;padding:16px;}
+.side-panel h3{margin-top:0;color:#4fd1a5;font-size:16px;}
+.side-panel p{font-size:13px;margin:6px 0;}
+button.action{background:#4fd1a5;color:#06201a;border:none;padding:10px 16px;border-radius:6px;cursor:pointer;font-size:14px;margin-top:10px;font-weight:bold;}
+button.action:hover{background:#3fc091;}
+.result-panel{margin-top:14px;background:#0f2a24;border:1px solid #4fd1a5;border-radius:8px;padding:10px;font-size:13px;line-height:1.5;}
+.code-box{background:#0b1f26;border:1px solid #1e3a3f;padding:12px;border-radius:6px;font-family:monospace;font-size:13px;margin:12px 0;}
+pre{background:#0b1f26;border:1px solid #1e3a3f;padding:12px;border-radius:6px;font-size:13px;}
+footer{margin-top:auto;padding:8px 24px;font-size:11px;color:#6d8890;}
+</style>
+</head>
+<body>
+<div id="app" data-demo="app">
+  <header>
+    <h1>AirMesh</h1>
+    <p>Crowdsourced, token-rewarded air quality sensing powered by Solana</p>
+  </header>
+  <nav class="tabs">
+    <button class="tab active" data-demo="tab-map" onclick="switchTab('map')">Live Map</button>
+    <button class="tab" data-demo="tab-api" onclick="switchTab('api')">Developer API</button>
+  </nav>
+
+  <div class="view" data-demo="view-map" id="view-map">
+    <div class="map-wrap">
+      <div class="map-area" data-demo="map-area">
+        <div class="pin" style="left:120px;top:80px;background:#2ecc71;"></div>
+        <div class="pin" style="left:300px;top:200px;background:#f1c40f;"></div>
+        <div class="pin" style="left:420px;top:90px;background:#e74c3c;"></div>
+        <div class="pin" style="left:150px;top:320px;background:#2ecc71;"></div>
+        <div class="pin new-pin" data-demo="map-pin-new" style="left:230px;top:260px;background:#3498db;display:none;" onclick="showTooltip()"></div>
+        <div class="tooltip" data-demo="pin-tooltip" style="display:none;">📍 Downtown Sensor #482<br>AQI 42 • PM2.5 11µg/m³<br>Submitted 2 min ago</div>
+      </div>
+    </div>
+    <div class="side-panel">
+      <h3>Network Stats</h3>
+      <p>Total Readings: <span data-demo="readings-count">15,482</span></p>
+      <p>Active Stakers: 326</p>
+      <p>Your Rewards: <span data-demo="rewards-count">128.4</span> AQT</p>
+      <button class="action" data-demo="submit-btn" onclick="submitReading()">Submit Reading</button>
+      <div class="result-panel" data-demo="result-panel" style="display:none;">
+        ✅ Reading validated<br>
+        Consensus Score: 96%<br>
+        Reward: +2.5 AQT
+      </div>
+    </div>
+  </div>
+
+  <div class="view" data-demo="view-api" id="view-api" style="display:none;flex-direction:column;">
+    <h3 style="color:#4fd1a5;">Open API</h3>
+    <div class="code-box" data-demo="api-endpoint-box">GET https://api.airmesh.io/v1/readings?lat=37.77&lng=-122.41</div>
+    <button class="action" data-demo="try-query-btn" onclick="tryQuery()" style="width:160px;">Try Query</button>
+    <pre data-demo="api-response" style="display:none;">{
+  "aqi": 42,
+  "pm25": 11,
+  "consensus": 0.96,
+  "timestamp": "2024-05-01T12:00:00Z"
+}</pre>
+  </div>
+
+  <footer>Prototype — all data is simulated</footer>
+</div>
+
+<script>
+let rewards = 128.4;
+let readings = 15482;
+
+function switchTab(tab){
+  document.getElementById('view-map').style.display = tab==='map' ? 'flex' : 'none';
+  document.getElementById('view-api').style.display = tab==='api' ? 'flex' : 'none';
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  if(tab==='map'){ document.querySelector('[data-demo="tab-map"]').classList.add('active'); }
+  else { document.querySelector('[data-demo="tab-api"]').classList.add('active'); }
+}
+
+function submitReading(){
+  rewards += 2.5;
+  readings += 1;
+  document.querySelector('[data-demo="rewards-count"]').textContent = rewards.toFixed(1);
+  document.querySelector('[data-demo="readings-count"]').textContent = readings.toLocaleString();
+  document.querySelector('[data-demo="result-panel"]').style.display = 'block';
+  document.querySelector('[data-demo="map-pin-new"]').style.display = 'block';
+}
+
+function showTooltip(){
+  document.querySelector('[data-demo="pin-tooltip"]').style.display = 'block';
+}
+
+function tryQuery(){
+  document.querySelector('[data-demo="api-response"]').style.display = 'block';
+}
+</script>
+</body>
+</html>
